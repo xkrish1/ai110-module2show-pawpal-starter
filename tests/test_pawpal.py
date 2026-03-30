@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 from pawpal_system import Task, Pet, Owner, Planner
+from pawpal_system import Scheduler
 
 
 TODAY = date(2026, 3, 25)
@@ -182,3 +183,42 @@ class TestPlanner:
         pet.add_task(make_task("Feed", duration=10, frequency="daily"))
         plan = Planner(owner).generate_plan(TODAY)
         assert plan.total_time_required() == 30
+
+
+class TestSchedulerExtras:
+    def test_sort_by_time_orders_chronologically(self):
+        s = Scheduler()
+        a = make_task("A")
+        b = make_task("B")
+        c = make_task("C")
+        a.time = "09:30"
+        b.time = "07:15"
+        c.time = "12:00"
+        tasks = [a, b, c]
+        ordered = s.sort_by_time(tasks)
+        assert [t.time for t in ordered] == ["07:15", "09:30", "12:00"]
+
+    def test_mark_task_complete_creates_next_for_daily(self):
+        s = Scheduler()
+        pet = make_pet()
+        t = make_task("Daily", frequency="daily")
+        t.time = "08:00"
+        pet.add_task(t)
+        new = s.mark_task_complete(pet, t, TODAY)
+        assert new is not None
+        assert new.due_date == TODAY + timedelta(days=1)
+
+    def test_detect_conflicts_flags_same_time(self):
+        s = Scheduler()
+        p1 = make_pet("A")
+        p2 = make_pet("B")
+        t1 = make_task("T1")
+        t2 = make_task("T2")
+        t1.time = "08:00"
+        t2.time = "08:00"
+        p1.add_task(t1)
+        p2.add_task(t2)
+        pairs = [(p1, t1), (p2, t2)]
+        warnings = s.detect_conflicts(pairs)
+        assert len(warnings) == 1
+        assert "08:00" in warnings[0]

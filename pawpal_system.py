@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
+from copy import deepcopy
 
 
 # ---------------------------------------------------------------------------
@@ -13,12 +14,17 @@ class Task:
     duration_minutes: int
     priority: int              # 1 (low) – 5 (high)
     frequency: str             # daily, weekly, as-needed
+    time: str = "00:00"       # scheduled time as HH:MM
+    due_date: date | None = None
     notes: str = ""
     pet_name: str = ""
     last_completed: date | None = None
 
     def is_due(self, today: date) -> bool:
         """Return True if this task should occur today (daily=always, weekly=every 7 days, as-needed=never)."""
+        # If a specific due_date is set, honor it first
+        if self.due_date is not None:
+            return self.due_date <= today
         if self.frequency == "daily":
             return True
         if self.frequency == "weekly":
@@ -30,6 +36,9 @@ class Task:
     def mark_complete(self, today: date) -> None:
         """Mark this task as completed on the given date."""
         self.last_completed = today
+        # Clear any explicit due date once completed
+        if self.due_date is not None and self.due_date <= today:
+            self.due_date = None
 
     def to_dict(self) -> dict:
         """Return a dictionary representation of this task."""
@@ -39,6 +48,8 @@ class Task:
             "duration_minutes": self.duration_minutes,
             "priority": self.priority,
             "frequency": self.frequency,
+            "time": self.time,
+            "due_date": str(self.due_date) if self.due_date else None,
             "notes": self.notes,
             "pet_name": self.pet_name,
             "last_completed": str(self.last_completed) if self.last_completed else None,
@@ -182,3 +193,84 @@ class Planner:
             parts.append(f"Skipped {n_skipped} task(s) due to time constraints: {skipped_names}.")
 
         return " ".join(parts)
+
+
+class Scheduler:
+    """Lightweight scheduler utilities: sorting by time, filtering, recurring task handling, and conflict detection.
+
+    This class operates on Pet and Task objects already present in memory and returns helpful lists/warnings
+    but does not modify the Planner logic directly.
+    """
+
+    @staticmethod
+    def _time_to_minutes(t: str) -> int:
+        """Convert an HH:MM string to minutes since midnight. Invalid formats return 0."""
+        try:
+            parts = t.split(":")
+            return int(parts[0]) * 60 + int(parts[1])
+        except Exception:
+            return 0
+
+    def sort_by_time(self, tasks: list[Task]) -> list[Task]:
+        """Return tasks sorted by their `time` attribute (HH:MM)."""
+        return sorted(tasks, key=lambda t: self._time_to_minutes(t.time))
+
+    def filter_tasks(self, tasks: list[Task], pet_name: str | None = None,
+                     completed: bool | None = None, today: date | None = None) -> list[Task]:
+        """Filter tasks by `pet_name` and/or completion status for `today`.
+
+        - If `completed` is True, return tasks with last_completed == today.
+        - If `completed` is False, return tasks whose last_completed is not today.
+        - If `today` is not provided but `completed` is requested, assume today's date.
+        """
+        result = tasks
+        if pet_name is not None:
+            result = [t for t in result if t.pet_name == pet_name]
+        if completed is not None:
+            if today is None:
+                today = date.today()
+            if completed:
+                result = [t for t in result if t.last_completed == today]
+            else:
+                result = [t for t in result if t.last_completed != today]
+        return result
+
+    def mark_task_complete(self, pet: Pet, task: Task, today: date) -> Task | None:
+        """Mark `task` complete for `pet` and, if recurring, create the next occurrence.
+
+        Returns the newly created Task for the next occurrence, or None if not recurring.
+        """
+        task.mark_complete(today)
+
+        if task.frequency not in ("daily", "weekly"):
+            return None
+
+        # Create a new task instance for the next occurrence and set its due_date
+        days = 1 if task.frequency == "daily" else 7
+        next_due = today + timedelta(days=days)
+
+        new_task = deepcopy(task)
+        new_task.last_completed = None
+        new_task.due_date = next_due
+        new_task.pet_name = pet.name
+
+        # Append to pet tasks so it appears in future planning
+        pet.tasks.append(new_task)
+        return new_task
+
+    def detect_conflicts(self, tasks: list[tuple[Pet, Task]]) -> list[str]:
+        """Return a list of warning strings for tasks that share the same `time`.
+
+        This is a lightweight check: only exact time matches are treated as conflicts.
+        """
+        by_time: dict[str, list[tuple[Pet, Task]]] = {}
+        for pet, task in tasks:
+            key = task.time or "00:00"
+            by_time.setdefault(key, []).append((pet, task))
+
+        warnings: list[str] = []
+        for tstr, items in by_time.items():
+            if len(items) > 1:
+                parts = [f"{pet.name}:{task.name}" for pet, task in items]
+                warnings.append(f"Conflict at {tstr} -> " + ", ".join(parts))
+        return warnings

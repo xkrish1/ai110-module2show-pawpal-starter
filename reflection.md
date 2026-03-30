@@ -52,6 +52,9 @@ Logic Bottlenecks:
 - Describe one tradeoff your scheduler makes.
 - Why is that tradeoff reasonable for this scenario?
 
+- **Tradeoff chosen:** The scheduler currently only checks for exact time-string matches (HH:MM) when flagging conflicts rather than detecting overlapping time ranges (start time + duration).
+- **Why reasonable:** Exact-match conflict detection is lightweight, easy to reason about, and sufficient for common cases (two tasks scheduled for the same slot). Implementing full interval-overlap detection requires consistent start/end semantics, more complex normalization, and additional testing. For a simple pet-owner assistant, clear warnings about exact-time collisions cover the majority of user needs while keeping the code easy to maintain.
+
 ---
 
 ## 3. AI Collaboration
@@ -61,10 +64,14 @@ Logic Bottlenecks:
 - How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
 - What kinds of prompts or questions were most helpful?
 
+- I used AI to brainstorm small algorithms (sorting by HH:MM, simple filtering, recurrence strategies) and to suggest Pythonic ways to implement them (lambda keys for sorted, using `timedelta` for recurrence). Short, focused prompts that included the desired input/output shape were most helpful.
+
 **b. Judgment and verification**
 
 - Describe one moment where you did not accept an AI suggestion as-is.
 - How did you evaluate or verify what the AI suggested?
+
+- I rejected a suggested implementation that attempted to auto-reschedule recurring tasks by mutating the original Task's `time` and `last_completed` in-place without creating a new occurrence. I preferred creating a new task instance for the next due date because it keeps historical completion data intact and is simpler to test. I verified by writing a unit test that asserts a new Task object is appended to the pet's task list with the correct `due_date`.
 
 ---
 
@@ -75,10 +82,14 @@ Logic Bottlenecks:
 - What behaviors did you test?
 - Why were these tests important?
 
+- Tests cover core behaviors: chronological sorting, recurrence creation when marking a daily task complete, and conflict detection for exact time matches. These ensure the new algorithmic layer behaves predictably and prevent regressions as the app evolves.
+
 **b. Confidence**
 
 - How confident are you that your scheduler works correctly?
 - What edge cases would you test next if you had more time?
+
+- I would test: overlapping intervals (start + duration) instead of exact-time strings, timezone-aware dates/times, tasks without a `time` field, and interactions between weekly recurrence and manual edits to `last_completed`.
 
 ---
 
