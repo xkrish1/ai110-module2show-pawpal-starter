@@ -47,6 +47,10 @@ Logic Bottlenecks:
 - What constraints does your scheduler consider (for example: time, priority, preferences)?
 - How did you decide which constraints mattered most?
 
+The scheduler considers three constraints: **time budget** (the owner's total available minutes per day), **priority** (a 1–5 score on each task), and **task frequency/due-date** (whether a task is actually due today based on its recurrence rule). Time budget is treated as a hard constraint — any task that doesn't fit is skipped rather than partially completed. Priority is the primary ranking key so that the most important care (medications, meals) is always scheduled first when time is tight. Frequency acts as a gate: tasks that aren't due on a given day are never even considered, keeping the plan focused. Duration is used as a tiebreaker within the same priority level, preferring shorter tasks so more items can fit inside the budget.
+
+I decided the time budget mattered most because it is a fixed real-world limit — an owner can't manufacture more hours. Priority came second because a missed medication is far more harmful than a skipped grooming session. Frequency was a natural prerequisite filter, not really a ranking concern.
+
 **b. Tradeoffs**
 
 - Describe one tradeoff your scheduler makes.
@@ -99,10 +103,16 @@ Logic Bottlenecks:
 
 - What part of this project are you most satisfied with?
 
+The strongest part of this project is the separation of concerns. The Planner handles logic, while Pet, Task, and Owner stay as clean data containers. That decision prevents the system from turning into a tangled mess when adding features like recurrence or prioritization. The scheduling pipeline is also predictable: rank, filter, assign. 
+
 **b. What you would improve**
 
 - If you had another iteration, what would you improve or redesign?
 
+DailyPlan, because it feels a bit shallow. It needs to be a solid, structured object that tracks metadata like skip reasons and pet associations instead of just being a loose bucket. 
+
 **c. Key takeaway**
 
 - What is one important thing you learned about designing systems or working with AI on this project?
+
+Clean structure is better than a fastly created complex project. A system that looks well-designed but ignores edge cases (time conflicts, recurrence state, multi-pet tracking) is bad. The real skill is designing something that stays simple while still handling what's needed.

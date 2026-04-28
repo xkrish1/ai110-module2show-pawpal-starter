@@ -1,6 +1,6 @@
 import streamlit as st
 from datetime import date
-from pawpal_system import Task, Pet, Owner, Planner
+from pawpal_system import Task, Pet, Owner, Planner, Scheduler
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 st.title("🐾 PawPal+")
@@ -11,6 +11,8 @@ st.title("🐾 PawPal+")
 
 if "owner" not in st.session_state:
     st.session_state.owner = Owner("Jordan", available_time_minutes=60)
+if "scheduler" not in st.session_state:
+    st.session_state.scheduler = Scheduler()
 
 # ---------------------------------------------------------------------------
 # Section 1: Owner setup
@@ -90,11 +92,34 @@ else:
         pet.add_task(new_task)   # <-- Pet.add_task() handles the data
         st.success(f"Added '{task_name}' to {selected_pet}.")
 
-    # Show all tasks grouped by pet
-    for pet in st.session_state.owner.pets:
-        if pet.tasks:
-            st.write(f"**{pet.name}**")
-            st.table([t.to_dict() for t in pet.get_tasks_by_priority()])
+    # Show all tasks sorted by scheduled time (Scheduler.sort_by_time)
+    all_tasks = [t for p in st.session_state.owner.pets for t in p.tasks]
+    if all_tasks:
+        scheduler = st.session_state.scheduler
+        sorted_tasks = scheduler.sort_by_time(all_tasks)
+        st.write("**All tasks — sorted by scheduled time:**")
+        st.table([
+            {
+                "Time": t.time,
+                "Pet": t.pet_name,
+                "Task": t.name,
+                "Category": t.category,
+                "Duration (min)": t.duration_minutes,
+                "Priority": t.priority,
+                "Frequency": t.frequency,
+            }
+            for t in sorted_tasks
+        ])
+
+        # Conflict detection — flag exact-time collisions across all pets
+        pairs = [(p, t) for p in st.session_state.owner.pets for t in p.tasks]
+        conflicts = scheduler.detect_conflicts(pairs)
+        if conflicts:
+            st.write("**Scheduling conflicts detected:**")
+            for warning in conflicts:
+                st.warning(f"⚠️ {warning}")
+        else:
+            st.success("No scheduling conflicts detected.")
 
 st.divider()
 
@@ -127,3 +152,11 @@ if st.button("Generate schedule"):
                 st.write(f"- {task.name}: {reason}")
 
         st.info(plan.explanation)
+
+        # Show conflict warnings for the scheduled tasks
+        scheduled_pairs = plan.scheduled_tasks  # list of (Pet, Task)
+        conflicts = st.session_state.scheduler.detect_conflicts(scheduled_pairs)
+        if conflicts:
+            st.write("**Time conflicts in today's schedule:**")
+            for warning in conflicts:
+                st.warning(f"⚠️ {warning}")

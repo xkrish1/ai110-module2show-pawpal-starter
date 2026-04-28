@@ -12,6 +12,16 @@ A busy pet owner needs help staying consistent with pet care. They want an assis
 
 Your job is to design the system first (UML), then implement the logic in Python, then connect it to the Streamlit UI.
 
+## Features
+
+- **Modular OOP design** — `Task`, `Pet`, `Owner`, `DailyPlan`, `Planner`, and `Scheduler` each own a single responsibility.
+- **Priority-first scheduling** — The `Planner` ranks tasks by priority (5 = critical) then duration, filling the owner's daily time budget and skipping tasks that don't fit.
+- **Sorting by time** — `Scheduler.sort_by_time()` orders any task list chronologically using `HH:MM` string keys.
+- **Filtering** — `Scheduler.filter_tasks()` returns tasks by pet name and/or completion status for a given day.
+- **Recurring tasks** — `Scheduler.mark_task_complete()` marks a task done and automatically appends a new occurrence (`due_date = today + 1 day` for daily, `+ 7 days` for weekly).
+- **Conflict warnings** — `Scheduler.detect_conflicts()` flags exact-time collisions across all pets and surfaces them as `st.warning` banners in the UI.
+- **Streamlit UI** — Add owners, pets, and tasks through web forms; view tasks sorted by time; generate a daily plan with one click.
+
 ## What you will build
 
 Your final app should:
@@ -21,6 +31,14 @@ Your final app should:
 - Generate a daily schedule/plan based on constraints and priorities
 - Display the plan clearly (and ideally explain the reasoning)
 - Include tests for the most important scheduling behaviors
+
+## System Architecture (UML)
+
+See [`uml_final.md`](uml_final.md) for the Mermaid.js class diagram showing how all classes relate.
+
+## 📸 Demo
+
+<a href="pawpal_demo.png" target="_blank"><img src='pawpal_demo.png' title='PawPal App' width='' alt='PawPal App' class='center-block' /></a>
 
 ## Getting started
 
